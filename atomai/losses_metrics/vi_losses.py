@@ -76,11 +76,12 @@ def kld_discrete(alpha: torch.Tensor,
         h2 = np.log(1. / cat_dim + eps)
         kld_loss = torch.mean(torch.sum(alpha * (h1 - h2), dim=1), dim=0)
     else:
+        disc_prior = np.array(disc_prior)
         if len(disc_prior) == cat_dim:
             disc_prior = disc_prior/sum(disc_prior)
         if len(disc_prior) == cat_dim-1:
             disc_prior.extend(1.-sum(disc_prior))
-        h2_new = np.log(np.array(disc_prior) + eps)
+        h2_new = np.log(disc_prior + eps)
         diff = [(h1[:, i] - h2_new[i]).reshape([-1, 1]) for i in range(cat_dim)]
 
         kld_loss = torch.mean(torch.sum(alpha * torch.cat(diff, dim=1), dim=1), dim=0)
