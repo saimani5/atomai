@@ -88,6 +88,7 @@ class jrVAE(BaseVAE):
         self.translation = translation
         self.dx_prior = None
         self.phi_prior = None
+        self.disc_prior = None
         self.kdict_ = dc(kwargs)
         self.kdict_["num_iter"] = 0
 
@@ -182,6 +183,11 @@ class jrVAE(BaseVAE):
                 translation prior
             **rotation_prior (float):
                 rotational prior
+            **disc_prior (List (floats)):
+                List containing prior probabilites for class labels,
+                len(disc_prior) is the number of discrte_dims,
+                sum(disc_prior) should be equal to 1.
+                Default: None => uses uniform prior
             **temperature (float):
                 Relaxation parameter for Gumbel-Softmax distribution
             **cont_capacity (list):
@@ -202,6 +208,7 @@ class jrVAE(BaseVAE):
         self._check_inputs(X_train, y_train, X_test, y_test)
         self.dx_prior = kwargs.get("translation_prior", 0.1)
         self.kdict_["phi_prior"] = kwargs.get("rotation_prior", 0.1)
+        self.kdict_["disc_prior"] = kwargs.get("disc_prior", None)
         for k, v in kwargs.items():
             if k in ["cont_capacity", "disc_capacity", "temperature"]:
                 self.kdict_[k] = v
