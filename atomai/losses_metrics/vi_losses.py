@@ -57,7 +57,8 @@ def kld_normal(q_param: Tuple[torch.Tensor],
     return torch.sum(kl, -1)
 
 
-def kld_discrete(alpha: torch.Tensor):
+def kld_discrete(alpha: torch.Tensor,
+                 disc_prior: List = None):
     """
     Calculates the KL divergence between a Gumbel-Softmax distribution
     and a uniform categorical distribution.
@@ -65,12 +66,25 @@ def kld_discrete(alpha: torch.Tensor):
     Args:
         alpha:
             Parameters of the Gumbel-Softmax distribution.
+        disc_prior:
+            Prior probabilites of the class labels
     """
     eps = 1e-12
     cat_dim = alpha.size(-1)
     h1 = torch.log(alpha + eps)
-    h2 = np.log(1. / cat_dim + eps)
-    kld_loss = torch.mean(torch.sum(alpha * (h1 - h2), dim=1), dim=0)
+    if disc_prior is None:
+        h2 = np.log(1. / cat_dim + eps)
+        kld_loss = torch.mean(torch.sum(alpha * (h1 - h2), dim=1), dim=0)
+    else:
+        if len(disc_prior) == cat_dim:
+            disc_prior = disc_prior/sum(disc_prior)
+        if len(disc_prior) == cat_dim-1:
+            disc_prior.extend(1.-sum(disc_prior))
+        h2_new = np.log(np.array(disc_prior) + eps)
+        diff = [(h1[:, i] - h2_new[i]).reshape([-1, 1]) for i in range(cat_dim)]
+
+        kld_loss = torch.mean(torch.sum(alpha * torch.cat(diff, dim=1), dim=1), dim=0)
+
     return kld_loss.view(1)
 
 
@@ -194,6 +208,7 @@ def joint_rvae_loss(recon_loss: str,
             "of encoded distributions as args")
 
     phi_prior = kwargs.get("phi_prior", 0.1)
+    disc_prior = kwargs.get("disc_prior", None)
     cont_capacity = kwargs.get("cont_capacity", [5.0, 25000, 30])
     disc_capacity = kwargs.get("disc_capacity", [5.0, 25000, 30])
     num_iter = kwargs.get("num_iter", 0)
@@ -210,7 +225,7 @@ def joint_rvae_loss(recon_loss: str,
 
     # Calculate KL term for discrete latent variables
     disc_dims = [a.size(1) for a in alphas]
-    kl_disc = [kld_discrete(alpha) for alpha in alphas]
+    kl_disc = [kld_discrete(alpha, disc_prior) for alpha in alphas]
     kl_disc_loss = torch.sum(torch.cat(kl_disc))
 
     # Apply information capacity terms to contninuous and discrete channels
