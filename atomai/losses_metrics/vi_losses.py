@@ -8,6 +8,7 @@ from typing import Tuple, List, Union, Optional
 import numpy as np
 import torch
 import torch.nn.functional as F
+tt = torch.tensor
 
 
 def reconstruction_loss(loss_type: str,
@@ -71,20 +72,18 @@ def kld_discrete(alpha: torch.Tensor,
     """
     eps = 1e-12
     cat_dim = alpha.size(-1)
-    h1 = torch.log(alpha + eps)
     if disc_prior is None:
+        h1 = torch.log(alpha + eps)
         h2 = np.log(1. / cat_dim + eps)
         kld_loss = torch.mean(torch.sum(alpha * (h1 - h2), dim=1), dim=0)
     else:
-        disc_prior = np.array(disc_prior)
-        if len(disc_prior) == cat_dim:
-            disc_prior = disc_prior/sum(disc_prior)
-        if len(disc_prior) == cat_dim-1:
-            disc_prior.extend(1.-sum(disc_prior))
-        h2_new = np.log(disc_prior + eps)
-        diff = [(h1[:, i] - h2_new[i]).reshape([-1, 1]) for i in range(cat_dim)]
+        disc_prior = tt(disc_prior)
+        alpha_mean = torch.mean(alpha, dim = 0)
+        h1_new = torch.log(alpha_mean + eps)
+        h2_new = torch.log(disc_prior + eps)
+        diff = (h1_new - h2_new.to(h1_new.device))
 
-        kld_loss = torch.mean(torch.sum(alpha * torch.cat(diff, dim=1), dim=1), dim=0)
+        kld_loss = torch.sum(alpha_mean * diff)
 
     return kld_loss.view(1)
 
